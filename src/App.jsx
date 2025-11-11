@@ -59,7 +59,7 @@ th { font-weight:600; }
 @media print { .no-print, .actions-col { display:none !important; } }
 `;
 
-const KEY='bb_tracker_canvas_v8'
+const KEY='bb_tracker_canvas_v9'
 const load=()=>{try{const r=localStorage.getItem(KEY);if(!r)throw 0;return JSON.parse(r)}catch{return{students:[],settings:{schoolYear:'2025-26',price:35}}}}
 const persist=(s)=>localStorage.setItem(KEY,JSON.stringify(s))
 
@@ -73,21 +73,97 @@ export default function App(){
   const fileRef = useRef(null)
   useEffect(()=>{persist({students,settings})},[students,settings])
 
-  const rows=useMemo(()=>students.map(s=>({...s,onHandMon:s.assignedMon-s.soldMon,onHandTue:s.assignedTue-s.soldTue})),[students])
-  const totals=useMemo(()=>{const mA=students.reduce((a,s)=>a+s.assignedMon,0),tA=students.reduce((a,s)=>a+s.assignedTue,0);const mS=students.reduce((a,s)=>a+s.soldMon,0),tS=students.reduce((a,s)=>a+s.soldTue,0);const mH=students.reduce((a,s)=>a+(s.assignedMon-s.soldMon),0),tH=students.reduce((a,s)=>a+(s.assignedTue-s.soldTue),0);const collected=students.reduce((a,s)=>a+s.collected,0);return{mA,tA,mS,tS,mH,tH,collected}},[students])
+  // Alphabetize by name
+  const sortedStudents = useMemo(() => [...students].sort((a,b)=>a.name.localeCompare(b.name)), [students])
 
-  const addStudent=()=>{if(!newName.trim())return;setStudents(s=>[...s,{id:crypto.randomUUID(),name:newName.trim(),assignedMon:0,assignedTue:0,soldMon:0,soldTue:0,collected:0}]);setNewName('')}
+  const rows=useMemo(()=>sortedStudents.map(s=>({
+    ...s,
+    onHandMon:s.assignedMon-s.soldMon,
+    onHandTue:s.assignedTue-s.soldTue
+  })),[sortedStudents])
+
+  const totals=useMemo(()=>{
+    const mA=students.reduce((a,s)=>a+s.assignedMon,0), tA=students.reduce((a,s)=>a+s.assignedTue,0)
+    const mS=students.reduce((a,s)=>a+s.soldMon,0),    tS=students.reduce((a,s)=>a+s.soldTue,0)
+    const mH=students.reduce((a,s)=>a+(s.assignedMon-s.soldMon),0)
+    const tH=students.reduce((a,s)=>a+(s.assignedTue-s.soldTue),0)
+    const collected=students.reduce((a,s)=>a+s.collected,0)
+    return {mA,tA,mS,tS,mH,tH,collected}
+  },[students])
+
+  const addStudent=()=>{
+    if(!newName.trim()) return
+    setStudents(s=>[...s,{
+      id:crypto.randomUUID(),
+      name:newName.trim(),
+      assignedMon:0,assignedTue:0,soldMon:0,soldTue:0,collected:0
+    }])
+    setNewName('')
+  }
   const removeStudent=(id)=>setStudents(s=>s.filter(x=>x.id!==id))
 
-  const assign=(id,day,qty)=>{if(!qty)return;setStudents(list=>list.map(s=>s.id===id?(day==='Mon'?{...s,assignedMon:s.assignedMon+qty}:{...s,assignedTue:s.assignedTue+qty}):s))}
-  const sell=(id,day,qty)=>{if(!qty)return;setStudents(list=>list.map(s=>{if(s.id!==id)return s;const avail=day==='Mon'?(s.assignedMon-s.soldMon):(s.assignedTue-s.soldTue);if(qty>avail)return s;return day==='Mon'?{...s,soldMon:s.soldMon+qty,collected:s.collected+qty*settings.price}:{...s,soldTue:s.soldTue+qty,collected:s.collected+qty*settings.price}}))}
-  const donate=(id,amt)=>{if(!Number.isFinite(amt)||amt<=0)return;setStudents(l=>l.map(s=>s.id===id?{...s,collected:s.collected+Math.round(amt)}:s))}
+  const assign=(id,day,qty)=>{
+    if(!qty) return
+    setStudents(list=>list.map(s=>s.id===id ? (
+      day==='Mon' ? {...s,assignedMon:s.assignedMon+qty} : {...s,assignedTue:s.assignedTue+qty}
+    ) : s))
+  }
+  const sell=(id,day,qty)=>{
+    if(!qty) return
+    setStudents(list=>list.map(s=>{
+      if(s.id!==id) return s
+      const avail = day==='Mon' ? (s.assignedMon-s.soldMon) : (s.assignedTue-s.soldTue)
+      if(qty>avail) return s
+      return day==='Mon'
+        ? {...s,soldMon:s.soldMon+qty,collected:s.collected+qty*settings.price}
+        : {...s,soldTue:s.soldTue+qty,collected:s.collected+qty*settings.price}
+    }))
+  }
+  const donate=(id,amt)=>{
+    if(!Number.isFinite(amt)||amt<=0) return
+    setStudents(l=>l.map(s=>s.id===id?{...s,collected:s.collected+Math.round(amt)}:s))
+  }
 
-  const exportBackup=()=>{try{const payload={version:1,exportedAt:new Date().toISOString(),settings,students};const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});const y=(settings.schoolYear||'').replace(/[^0-9-]/g,'')||'data';const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`bb-tracker-${y}.json`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}catch(err){alert('Export failed.');console.error(err)}}
+  // Backup & Restore
+  const exportBackup=()=>{
+    try{
+      const payload={version:1,exportedAt:new Date().toISOString(),settings,students}
+      const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'})
+      const y=(settings.schoolYear||'').replace(/[^0-9-]/g,'')||'data'
+      const a=document.createElement('a')
+      a.href=URL.createObjectURL(blob)
+      a.download=`bb-tracker-${y}.json`
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(()=>URL.revokeObjectURL(a.href),1000)
+    }catch(err){ alert('Export failed.'); console.error(err) }
+  }
 
-  const importBackupFromFile=async(file)=>{try{const text=await file.text();const data=JSON.parse(text);if(!data||typeof data!=='object')throw new Error('Invalid file');const ns=Array.isArray(data.students)?data.students.map(s=>({id:String(s.id||crypto.randomUUID()),name:String(s.name||'Unnamed'),assignedMon:Math.max(0,parseInt(s.assignedMon||0,10)),assignedTue:Math.max(0,parseInt(s.assignedTue||0,10)),soldMon:Math.max(0,parseInt(s.soldMon||0,10)),soldTue:Math.max(0,parseInt(s.soldTue||0,10)),collected:Math.max(0,parseInt(s.collected||0,10))})):null;const st=data.settings&&typeof data.settings==='object'?{schoolYear:String(data.settings.schoolYear||settings.schoolYear||''),price:Math.max(0,parseInt(data.settings.price||settings.price||35,10))}:null;if(!ns||!st)throw new Error('Missing required fields');if(!confirm('Importing will replace current data on this device. Continue?'))return;setSettings(st);setStudents(ns)}catch(err){alert('Import failed. Please check the file.');console.error(err)}}
-  const triggerImport=()=>fileRef.current?.click()
-  const onFilePicked=(e)=>{const f=e.target.files?.[0];if(f)importBackupFromFile(f);e.target.value=''}
+  const importBackupFromFile=async(file)=>{
+    try{
+      const text=await file.text()
+      const data=JSON.parse(text)
+      if(!data||typeof data!=='object') throw new Error('Invalid file')
+      const ns=Array.isArray(data.students)?data.students.map(s=>({
+        id:String(s.id||crypto.randomUUID()),
+        name:String(s.name||'Unnamed'),
+        assignedMon:Math.max(0,parseInt(s.assignedMon||0,10)),
+        assignedTue:Math.max(0,parseInt(s.assignedTue||0,10)),
+        soldMon:Math.max(0,parseInt(s.soldMon||0,10)),
+        soldTue:Math.max(0,parseInt(s.soldTue||0,10)),
+        collected:Math.max(0,parseInt(s.collected||0,10)),
+      })) : null
+      const st = data.settings && typeof data.settings==='object' ? {
+        schoolYear:String(data.settings.schoolYear||settings.schoolYear||''),
+        price:Math.max(0,parseInt(data.settings.price||settings.price||35,10))
+      } : null
+      if(!ns||!st) throw new Error('Missing required fields')
+      if(!confirm('Importing will replace current data on this device. Continue?')) return
+      setSettings(st); setStudents(ns)
+    }catch(err){ alert('Import failed. Please check the file.'); console.error(err) }
+  }
+  const fileRefPick = useRef(null)
+  const triggerImport=()=>fileRefPick.current?.click()
+  const onFilePicked=(e)=>{ const f=e.target.files?.[0]; if(f) importBackupFromFile(f); e.target.value='' }
 
   const today=new Date().toLocaleDateString()
 
@@ -114,9 +190,9 @@ export default function App(){
         {showSettings && (
           <div className="card no-print">
             <h3>Settings</h3>
-            {!editingSettings?
-              <button className="btn btn-primary" onClick={()=>setEditingSettings(true)}>✏️ Edit</button>:
-              <button className="btn btn-primary" onClick={()=>setEditingSettings(false)}>💾 Save</button>}
+            {!editingSettings
+              ? <button className="btn btn-primary" onClick={()=>setEditingSettings(true)}>✏️ Edit</button>
+              : <button className="btn btn-primary" onClick={()=>setEditingSettings(false)}>💾 Save</button>}
             <div className="grid">
               <div>
                 <label>School Year</label>
@@ -128,10 +204,10 @@ export default function App(){
               </div>
             </div>
             <hr style={{margin:'1rem 0', border:'none', borderTop:'1px solid var(--line)'}}/>
-            <div style={{display:'flex',gap:'.5rem',flexWrap:'wrap',alignItems:'center'}}>
+            <div style={{display:'flex',gap:'.5rem',flexWrap:'wrap',alignItems:'center"}}>
               <button className="btn btn-primary" onClick={exportBackup}>⬇️ Export Backup (.json)</button>
               <button className="btn" onClick={triggerImport}>⬆️ Import Backup</button>
-              <input ref={fileRef} type="file" accept="application/json" className="hidden" onChange={onFilePicked}/>
+              <input ref={fileRefPick} type="file" accept="application/json" className="hidden" onChange={onFilePicked}/>
               <span style={{color:'var(--muted)',fontSize:'.9rem'}}>Backups save to your device. Import will replace current data on this device.</span>
             </div>
           </div>
@@ -149,11 +225,29 @@ export default function App(){
           <h3>Students</h3>
           <table>
             <thead>
-              <tr><th>Name</th><th>Assigned (Mon/Tue)</th><th>Sold (Mon/Tue)</th><th>On Hand (Mon/Tue)</th><th>Collected $</th><th className="actions-col no-print">Actions</th></tr>
+              <tr>
+                <th>Name</th>
+                <th>Assigned (Mon/Tue)</th>
+                <th>Sold (Mon/Tue)</th>
+                <th>On Hand (Mon/Tue)</th>
+                <th>Collected $</th>
+                <th className="actions-col no-print">Actions</th>
+              </tr>
             </thead>
-            <tbody>{rows.map(r=><StudentRow key={r.id} row={r} onAssign={assign} onSell={sell} onDonate={donate} onRemove={removeStudent}/>)}</tbody>
+            <tbody>
+              {rows.map(r=>
+                <StudentRow key={r.id} row={r} onAssign={assign} onSell={sell} onDonate={donate} onRemove={removeStudent} />
+              )}
+            </tbody>
             <tfoot>
-              <tr><td><b>Totals</b></td><td>{totals.mA}/{totals.tA}</td><td>{totals.mS}/{totals.tS}</td><td>{totals.mH}/{totals.tH}</td><td>${totals.collected}</td><td></td></tr>
+              <tr>
+                <td><b>Totals</b></td>
+                <td>{totals.mA}/{totals.tA}</td>
+                <td>{totals.mS}/{totals.tS}</td>
+                <td>{totals.mH}/{totals.tH}</td>
+                <td>${totals.collected}</td>
+                <td></td>
+              </tr>
             </tfoot>
           </table>
         </div>
@@ -163,21 +257,36 @@ export default function App(){
 }
 
 function StudentRow({row,onAssign,onSell,onDonate,onRemove}){
-  const [day,setDay]=useState('Mon');const [qty,setQty]=useState('1');const [don,setDon]=useState('');const [action,setAction]=useState('assign');
-  const qtyNum=parseInt(qty||'0',10),donNum=parseInt(don||'0',10);
-  const disableQty=!Number.isFinite(qtyNum)||qtyNum<=0,disableDon=!Number.isFinite(donNum)||donNum<=0;
-  const onHandDay=day==='Mon'?row.onHandMon:row.onHandTue;const submitDisabled=action==='assign'?disableQty:(disableQty||qtyNum>onHandDay);
+  const [day,setDay]=useState('Mon')
+  const [qty,setQty]=useState('1')
+  const [don,setDon]=useState('')
+  const [action,setAction]=useState('assign')
+
+  const qtyNum=parseInt(qty||'0',10)
+  const donNum=parseInt(don||'0',10)
+
+  const disableQty=!Number.isFinite(qtyNum)||qtyNum<=0
+  const disableDon=!Number.isFinite(donNum)||donNum<=0
+
+  const onHandDay = day==='Mon' ? row.onHandMon : row.onHandTue
+  const submitDisabled = action==='assign' ? disableQty : (disableQty || qtyNum>onHandDay)
+
   function submit(){
-    if(action==='assign'&&!disableQty){onAssign(row.id,day,qtyNum);setQty('')}
+    if(action==='assign' && !disableQty){ onAssign(row.id,day,qtyNum); setQty('') }
     if(action==='sellcollect'){
-      if(disableQty)return;
-      if(qtyNum>onHandDay){alert('Not enough tickets on hand.');return;}
-      onSell(row.id,day,qtyNum);setQty('')
+      if(disableQty) return
+      if(qtyNum>onHandDay){ alert('Not enough tickets on hand.'); return }
+      onSell(row.id,day,qtyNum); setQty('')
     }
   }
+
   return (
     <tr>
-      <td>{row.name}</td><td>{row.assignedMon}/{row.assignedTue}</td><td>{row.soldMon}/{row.soldTue}</td><td>{row.onHandMon}/{row.onHandTue}</td><td>${row.collected}</td>
+      <td>{row.name}</td>
+      <td>{row.assignedMon}/{row.assignedTue}</td>
+      <td>{row.soldMon}/{row.soldTue}</td>
+      <td>{row.onHandMon}/{row.onHandTue}</td>
+      <td>${row.collected}</td>
       <td className="actions-col no-print">
         <div className="row-actions">
           <div className="pills">
@@ -191,7 +300,7 @@ function StudentRow({row,onAssign,onSell,onDonate,onRemove}){
           </select>
           <button className="btn btn-primary" disabled={submitDisabled} onClick={submit}>Submit</button>
           <input className="q-input" type="number" min={1} step={1} placeholder="Donate $" value={don} onChange={e=>setDon(e.target.value)}/>
-          <button className="btn btn-warn" disabled={disableDon} onClick={()=>{onDonate(row.id,donNum);setDon('')}}>Add Donation</button>
+          <button className="btn btn-warn" disabled={disableDon} onClick={()=>{onDonate(row.id,donNum); setDon('')}}>Add Donation</button>
           <button className="btn btn-danger" onClick={()=>onRemove(row.id)}>Remove</button>
         </div>
       </td>
