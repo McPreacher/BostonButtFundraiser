@@ -1,0 +1,97 @@
+import React, { useEffect, useMemo, useState } from 'react'
+
+const styles = `
+:root {
+  --fg:#0f172a; --muted:#59627b; --line:#e2e8f0; --bg:#f8fafc;
+  --accent:#2563eb; --accent-2:#0ea5e9; --warn:#f59e0b; --danger:#ef4444;
+}
+body { margin:0; font-family:Inter, system-ui, sans-serif; color:var(--fg); background:#f8fafc; }
+.header { background:linear-gradient(135deg,var(--accent) 0%, var(--accent-2) 100%); color:white; padding:1rem 0; margin-bottom:1.25rem; }
+.header .container { display:flex; justify-content:space-between; align-items:center; }
+.container { max-width:1100px; margin:0 auto; padding:0 1rem; }
+.card { background:#fff; border:1px solid var(--line); border-radius:14px; padding:1rem; box-shadow:0 2px 6px rgba(0,0,0,.08); }
+
+/* Inputs & selects: defined fields */
+input, select { border:1px solid var(--line); background:#fff; border-radius:10px; padding:.55rem .7rem; font-size:0.95rem; outline:none; }
+input:focus, select:focus { border-color: var(--accent); box-shadow:0 0 0 3px rgba(37,99,235,.18); }
+.q-input { width:90px; text-align:left; }
+
+/* Buttons: sleek rounded style */
+.btn { border-radius:30px; border:none; padding:.55rem 1.1rem; font-weight:600; cursor:pointer; transition:all .2s ease; box-shadow:0 2px 4px rgba(0,0,0,.1); }
+.btn:hover { transform:translateY(-1px); box-shadow:0 4px 8px rgba(0,0,0,.15); }
+.btn:active { transform:translateY(0); box-shadow:0 2px 4px rgba(0,0,0,.1); }
+.btn:disabled { opacity:.55; cursor:not-allowed; }
+.btn-primary { background:var(--accent); color:white; }
+.btn-warn { background:var(--warn); color:white; }
+.btn-danger { background:var(--danger); color:white; }
+
+/* Pills (Mon/Tue) */
+.pills { display:inline-flex; border:1px solid var(--line); border-radius:20px; overflow:hidden; }
+.pills button { border:none; background:transparent; padding:.45rem .9rem; cursor:pointer; font-weight:600; color:var(--muted); transition:background .2s ease; }
+.pills button.active { background:var(--accent); color:white; }
+
+/* Row actions compact */
+.row-actions { display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; }
+
+/* Table */
+table { width:100%; border-collapse:collapse; }
+th, td { padding:.55rem; border-bottom:1px solid var(--line); text-align:left; }
+th { font-weight:600; }
+.badge { display:inline-block; padding:.25rem .6rem; border-radius:999px; background:#eef2ff; border:1px solid #c7d2fe; font-size:.8rem; color:#3730a3; }
+`;
+
+type Student = { id:string; name:string; assignedMon:number; assignedTue:number; soldMon:number; soldTue:number; collected:number; }
+type Settings = { schoolYear:string; price:number }
+const KEY='bb_tracker_canvas_v7'
+const load=()=>{try{const r=localStorage.getItem(KEY);if(!r)throw 0;return JSON.parse(r)}catch{return{students:[],settings:{schoolYear:'2025-26',price:35}}}}
+const persist=(s:any)=>localStorage.setItem(KEY,JSON.stringify(s))
+
+export default function App(){
+  const init=load()
+  const [students,setStudents]=useState<Student[]>(init.students)
+  const [settings,setSettings]=useState<Settings>(init.settings)
+  const [showSettings,setShowSettings]=useState(false)
+  const [editingSettings,setEditingSettings]=useState(false)
+  const [newName,setNewName]=useState('')
+  useEffect(()=>{persist({students,settings})},[students,settings])
+
+  const rows=useMemo(()=>students.map(s=>({...s,onHandMon:s.assignedMon-s.soldMon,onHandTue:s.assignedTue-s.soldTue})),[students])
+  const totals=useMemo(()=>{
+    const mA=students.reduce((a,s)=>a+s.assignedMon,0),tA=students.reduce((a,s)=>a+s.assignedTue,0)
+    const mS=students.reduce((a,s)=>a+s.soldMon,0),tS=students.reduce((a,s)=>a+s.soldTue,0)
+    const mH=students.reduce((a,s)=>a+(s.assignedMon-s.soldMon),0),tH=students.reduce((a,s)=>a+(s.assignedTue-s.soldTue),0)
+    const collected=students.reduce((a,s)=>a+s.collected,0)
+    return{mA,tA,mS,tS,mH,tH,collected}
+  },[students])
+
+  const addStudent=()=>{if(!newName.trim())return;setStudents(s=>[...s,{id:crypto.randomUUID(),name:newName.trim(),assignedMon:0,assignedTue:0,soldMon:0,soldTue:0,collected:0}]);setNewName('')}
+  const removeStudent=(id:string)=>setStudents(s=>s.filter(x=>x.id!==id))
+
+  const assign=(id:string,day:'Mon'|'Tue',qty:number)=>{if(!qty)return;setStudents(list=>list.map(s=>s.id===id?(day==='Mon'?{...s,assignedMon:s.assignedMon+qty}:{...s,assignedTue:s.assignedTue+qty}):s))}
+  const sell=(id:string,day:'Mon'|'Tue',qty:number)=>{if(!qty)return;setStudents(list=>list.map(s=>{if(s.id!==id)return s;const avail=day==='Mon'?(s.assignedMon-s.soldMon):(s.assignedTue-s.soldTue);if(qty>avail)return s;return day==='Mon'?{...s,soldMon:s.soldMon+qty,collected:s.collected+qty*settings.price}:{...s,soldTue:s.soldTue+qty,collected:s.collected+qty*settings.price}}))}
+  const donate=(id:string,amt:number)=>{if(!Number.isFinite(amt)||amt<=0)return;setStudents(l=>l.map(s=>s.id===id?{...s,collected:s.collected+Math.round(amt)}:s))}
+
+  return(<>
+    <style>{styles}</style>
+    <div className="header no-print"><div className="container"><h1>Boston Butt Fundraiser Tracker</h1><div><button className="btn btn-primary" onClick={()=>setShowSettings(v=>!v)}>⚙️ Settings</button><button className="btn btn-primary" onClick={()=>window.print()}>🖨️ Print</button></div></div></div>
+    <div className="container">
+      <div className={`card ${showSettings?'':'hidden'} no-print`}>
+        <h3>Settings</h3>
+        {!editingSettings?<button className="btn btn-primary"onClick={()=>setEditingSettings(true)}>✏️ Edit</button>:<button className="btn btn-primary"onClick={()=>setEditingSettings(false)}>💾 Save</button>}
+        <div className="grid"><div><label>School Year</label><input disabled={!editingSettings}value={settings.schoolYear}onChange={e=>setSettings({...settings,schoolYear:e.target.value})}/></div><div><label>Ticket Price</label><input disabled={!editingSettings}value={settings.price}onChange={e=>setSettings({...settings,price:parseInt(e.target.value||'0',10)})}/></div></div>
+      </div>
+
+      <div className="card no-print"><h3>Add Student</h3><div className="row-actions"><input placeholder="Student name"value={newName}onChange={e=>setNewName(e.target.value)}/><button className="btn btn-primary"onClick={addStudent}>Add</button></div></div>
+
+      <div className="card"><h3>Students</h3><table><thead><tr><th>Name</th><th>Assigned (Mon/Tue)</th><th>Sold (Mon/Tue)</th><th>On Hand (Mon/Tue)</th><th>Collected $</th><th>Actions</th></tr></thead><tbody>{rows.map(r=><StudentRow key={r.id}row={r}onAssign={assign}onSell={sell}onDonate={donate}onRemove={removeStudent}/>)}</tbody><tfoot><tr><td><b>Totals</b></td><td>{totals.mA}/{totals.tA}</td><td>{totals.mS}/{totals.tS}</td><td>{totals.mH}/{totals.tH}</td><td>${totals.collected}</td><td></td></tr></tfoot></table></div>
+    </div>
+  </>)
+}
+
+function StudentRow({row,onAssign,onSell,onDonate,onRemove}:{row:any;onAssign:(id:string,day:'Mon'|'Tue',qty:number)=>void;onSell:(id:string,day:'Mon'|'Tue',qty:number)=>void;onDonate:(id:string,amt:number)=>void;onRemove:(id:string)=>void;}){
+  const[day,setDay]=useState<'Mon'|'Tue'>('Mon');const[qty,setQty]=useState('1');const[don,setDon]=useState('');const[action,setAction]=useState<'assign'|'sellcollect'>('assign');
+  const qtyNum=parseInt(qty||'0',10),donNum=parseInt(don||'0',10);
+  const disableQty=!Number.isFinite(qtyNum)||qtyNum<=0,disableDon=!Number.isFinite(donNum)||donNum<=0;
+  const onHandDay=day==='Mon'?row.onHandMon:row.onHandTue;const submitDisabled=action==='assign'?disableQty:(disableQty||qtyNum>onHandDay);
+  function submit(){if(action==='assign'&&!disableQty)return onAssign(row.id,day,qtyNum);if(action==='sellcollect'){if(disableQty)return;if(qtyNum>onHandDay){alert('Not enough tickets on hand.');return;}return onSell(row.id,day,qtyNum)}}
+  return(<tr><td>{row.name}</td><td>{row.assignedMon}/{row.assignedTue}</td><td>{row.soldMon}/{row.soldTue}</td><td>{row.onHandMon}/{row.onHandTue}</td><td>${row.collected}</td><td><div className="row-actions"><div className="pills"><button className={day==='Mon'?'active':''}onClick={()=>setDay('Mon')}>Mon</button><button className={day==='Tue'?'active':''}onClick={()=>setDay('Tue')}>Tue</button></div><input className="q-input"type="number"min={1}step={1}value={qty}onChange={e=>setQty(e.target.value)}/><select className="q-input"value={action}onChange={e=>setAction(e.target.value as any)}><option value="assign">Assign</option><option value="sellcollect">Sell + Collect</option></select><button className="btn btn-primary"disabled={submitDisabled}onClick={submit}>Submit</button><input className="q-input"type="number"min={1}step={1}placeholder="Donate $"value={don}onChange={e=>setDon(e.target.value)}/><button className="btn btn-warn"disabled={disableDon}onClick={()=>onDonate(row.id,donNum)}>Add Donation</button><button className="btn btn-danger"onClick={()=>onRemove(row.id)}>Remove</button></div></td></tr>)}
