@@ -132,7 +132,7 @@ export default function App(){
       const y=(settings.schoolYear||'').replace(/[^0-9-]/g,'')||'data'
       const a=document.createElement('a')
       a.href=URL.createObjectURL(blob)
-      a.download=`bb-tracker-${y}.json`
+      a.download = 'bb-tracker-' + y + '.json'
       document.body.appendChild(a); a.click(); a.remove();
       setTimeout(()=>URL.revokeObjectURL(a.href),1000)
     }catch(err){ alert('Export failed.'); console.error(err) }
@@ -204,7 +204,7 @@ export default function App(){
               </div>
             </div>
             <hr style={{margin:'1rem 0', border:'none', borderTop:'1px solid var(--line)'}}/>
-            <div style={{display:'flex',gap:'.5rem',flexWrap:'wrap',alignItems:'center"}}>
+            <div style={{display:'flex',gap:'.5rem',flexWrap:'wrap',alignItems:'center'}}>
               <button className="btn btn-primary" onClick={exportBackup}>⬇️ Export Backup (.json)</button>
               <button className="btn" onClick={triggerImport}>⬆️ Import Backup</button>
               <input ref={fileRefPick} type="file" accept="application/json" className="hidden" onChange={onFilePicked}/>
@@ -299,7 +299,7 @@ function StudentRow({row,onAssign,onSell,onDonate,onRemove}){
             <option value="sellcollect">Sell + Collect</option>
           </select>
           <button className="btn btn-primary" disabled={submitDisabled} onClick={submit}>Submit</button>
-          <input className="q-input" type="number" min={1} step={1} placeholder="Donate $" value={don} onChange={e=>setDon(e.target.value)}/>
+          <input className="q-input" type="number" min={1} step={1} placeholder="Donate" value={don} onChange={e=>setDon(e.target.value)}/>
           <button className="btn btn-warn" disabled={disableDon} onClick={()=>{onDonate(row.id,donNum); setDon('')}}>Add Donation</button>
           <button className="btn btn-danger" onClick={()=>onRemove(row.id)}>Remove</button>
         </div>
