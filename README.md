@@ -1,15 +1,26 @@
+# Boston Butt Fundraiser Tracker
 
-# Boston Butt Fundraiser Tracker (JS-only)
+Web app to track fundraiser tickets per student.
 
-React + Vite app to track Boston Butt fundraiser tickets.
-
-## Build on Netlify
-- **Build command:** `npm run build`
-- **Publish directory:** `dist`
-- No env vars needed.
+## Features
+- Assign / Sell + Collect tickets, separated by Monday and Tuesday
+- Donations (not tied to tickets)
+- Oversell protection
+- Local persistence and manual **Export/Import backup (.json)**
+- Clean printable report (buttons/inputs hidden)
 
 ## Local Dev
 ```bash
 npm install
 npm run dev
 ```
+
+## Build
+```bash
+npm run build
+```
+Outputs to `dist/`.
+
+## Netlify
+- **Build command:** `npm run build`
+- **Publish directory:** `dist`
