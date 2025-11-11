@@ -40,16 +40,14 @@ th { font-weight:600; }
 .badge { display:inline-block; padding:.25rem .6rem; border-radius:999px; background:#eef2ff; border:1px solid #c7d2fe; font-size:.8rem; color:#3730a3; }
 `;
 
-type Student = { id:string; name:string; assignedMon:number; assignedTue:number; soldMon:number; soldTue:number; collected:number; }
-type Settings = { schoolYear:string; price:number }
-const KEY='bb_tracker_canvas_v7'
+const KEY='bb_tracker_vite_netlify_v1'
 const load=()=>{try{const r=localStorage.getItem(KEY);if(!r)throw 0;return JSON.parse(r)}catch{return{students:[],settings:{schoolYear:'2025-26',price:35}}}}
-const persist=(s:any)=>localStorage.setItem(KEY,JSON.stringify(s))
+const persist=(s)=>localStorage.setItem(KEY,JSON.stringify(s))
 
 export default function App(){
   const init=load()
-  const [students,setStudents]=useState<Student[]>(init.students)
-  const [settings,setSettings]=useState<Settings>(init.settings)
+  const [students,setStudents]=useState(init.students)
+  const [settings,setSettings]=useState(init.settings)
   const [showSettings,setShowSettings]=useState(false)
   const [editingSettings,setEditingSettings]=useState(false)
   const [newName,setNewName]=useState('')
@@ -65,11 +63,11 @@ export default function App(){
   },[students])
 
   const addStudent=()=>{if(!newName.trim())return;setStudents(s=>[...s,{id:crypto.randomUUID(),name:newName.trim(),assignedMon:0,assignedTue:0,soldMon:0,soldTue:0,collected:0}]);setNewName('')}
-  const removeStudent=(id:string)=>setStudents(s=>s.filter(x=>x.id!==id))
+  const removeStudent=(id)=>setStudents(s=>s.filter(x=>x.id!==id))
 
-  const assign=(id:string,day:'Mon'|'Tue',qty:number)=>{if(!qty)return;setStudents(list=>list.map(s=>s.id===id?(day==='Mon'?{...s,assignedMon:s.assignedMon+qty}:{...s,assignedTue:s.assignedTue+qty}):s))}
-  const sell=(id:string,day:'Mon'|'Tue',qty:number)=>{if(!qty)return;setStudents(list=>list.map(s=>{if(s.id!==id)return s;const avail=day==='Mon'?(s.assignedMon-s.soldMon):(s.assignedTue-s.soldTue);if(qty>avail)return s;return day==='Mon'?{...s,soldMon:s.soldMon+qty,collected:s.collected+qty*settings.price}:{...s,soldTue:s.soldTue+qty,collected:s.collected+qty*settings.price}}))}
-  const donate=(id:string,amt:number)=>{if(!Number.isFinite(amt)||amt<=0)return;setStudents(l=>l.map(s=>s.id===id?{...s,collected:s.collected+Math.round(amt)}:s))}
+  const assign=(id, day, qty)=>{if(!qty)return;setStudents(list=>list.map(s=>s.id===id?(day==='Mon'?{...s,assignedMon:s.assignedMon+qty}:{...s,assignedTue:s.assignedTue+qty}):s))}
+  const sell=(id, day, qty)=>{if(!qty)return;setStudents(list=>list.map(s=>{if(s.id!==id)return s;const avail=day==='Mon'?(s.assignedMon-s.soldMon):(s.assignedTue-s.soldTue);if(qty>avail)return s;return day==='Mon'?{...s,soldMon:s.soldMon+qty,collected:s.collected+qty*settings.price}:{...s,soldTue:s.soldTue+qty,collected:s.collected+qty*settings.price}}))}
+  const donate=(id, amt)=>{if(!Number.isFinite(amt)||amt<=0)return;setStudents(l=>l.map(s=>s.id===id?{...s,collected:s.collected+Math.round(amt)}:s))}
 
   return(<>
     <style>{styles}</style>
@@ -88,10 +86,10 @@ export default function App(){
   </>)
 }
 
-function StudentRow({row,onAssign,onSell,onDonate,onRemove}:{row:any;onAssign:(id:string,day:'Mon'|'Tue',qty:number)=>void;onSell:(id:string,day:'Mon'|'Tue',qty:number)=>void;onDonate:(id:string,amt:number)=>void;onRemove:(id:string)=>void;}){
-  const[day,setDay]=useState<'Mon'|'Tue'>('Mon');const[qty,setQty]=useState('1');const[don,setDon]=useState('');const[action,setAction]=useState<'assign'|'sellcollect'>('assign');
+function StudentRow({row,onAssign,onSell,onDonate,onRemove}){
+  const[day,setDay]=useState('Mon');const[qty,setQty]=useState('1');const[don,setDon]=useState('');const[action,setAction]=useState('assign');
   const qtyNum=parseInt(qty||'0',10),donNum=parseInt(don||'0',10);
   const disableQty=!Number.isFinite(qtyNum)||qtyNum<=0,disableDon=!Number.isFinite(donNum)||donNum<=0;
   const onHandDay=day==='Mon'?row.onHandMon:row.onHandTue;const submitDisabled=action==='assign'?disableQty:(disableQty||qtyNum>onHandDay);
   function submit(){if(action==='assign'&&!disableQty)return onAssign(row.id,day,qtyNum);if(action==='sellcollect'){if(disableQty)return;if(qtyNum>onHandDay){alert('Not enough tickets on hand.');return;}return onSell(row.id,day,qtyNum)}}
-  return(<tr><td>{row.name}</td><td>{row.assignedMon}/{row.assignedTue}</td><td>{row.soldMon}/{row.soldTue}</td><td>{row.onHandMon}/{row.onHandTue}</td><td>${row.collected}</td><td><div className="row-actions"><div className="pills"><button className={day==='Mon'?'active':''}onClick={()=>setDay('Mon')}>Mon</button><button className={day==='Tue'?'active':''}onClick={()=>setDay('Tue')}>Tue</button></div><input className="q-input"type="number"min={1}step={1}value={qty}onChange={e=>setQty(e.target.value)}/><select className="q-input"value={action}onChange={e=>setAction(e.target.value as any)}><option value="assign">Assign</option><option value="sellcollect">Sell + Collect</option></select><button className="btn btn-primary"disabled={submitDisabled}onClick={submit}>Submit</button><input className="q-input"type="number"min={1}step={1}placeholder="Donate $"value={don}onChange={e=>setDon(e.target.value)}/><button className="btn btn-warn"disabled={disableDon}onClick={()=>onDonate(row.id,donNum)}>Add Donation</button><button className="btn btn-danger"onClick={()=>onRemove(row.id)}>Remove</button></div></td></tr>)}
+  return(<tr><td>{row.name}</td><td>{row.assignedMon}/{row.assignedTue}</td><td>{row.soldMon}/{row.soldTue}</td><td>{row.onHandMon}/{row.onHandTue}</td><td>${row.collected}</td><td><div className="row-actions"><div className="pills"><button className={day==='Mon'?'active':''}onClick={()=>setDay('Mon')}>Mon</button><button className={day==='Tue'?'active':''}onClick={()=>setDay('Tue')}>Tue</button></div><input className="q-input"type="number"min={1}step={1}value={qty}onChange={e=>setQty(e.target.value)}/><select className="q-input"value={action}onChange={e=>setAction(e.target.value)}><option value="assign">Assign</option><option value="sellcollect">Sell + Collect</option></select><button className="btn btn-primary"disabled={submitDisabled}onClick={submit}>Submit</button><input className="q-input"type="number"min={1}step={1}placeholder="Donate $"value={don}onChange={e=>setDon(e.target.value)}/><button className="btn btn-warn"disabled={disableDon}onClick={()=>onDonate(row.id,donNum)}>Add Donation</button><button className="btn btn-danger"onClick={()=>onRemove(row.id)}>Remove</button></div></td></tr>)}
