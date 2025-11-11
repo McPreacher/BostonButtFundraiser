@@ -7,7 +7,7 @@ Web app to track fundraiser tickets per student.
 - Donations (not tied to tickets)
 - Oversell protection
 - Local persistence and manual **Export/Import backup (.json)**
-- Clean printable report (buttons/inputs hidden)
+- Clean printable report (buttons/inputs hidden + print header)
 
 ## Local Dev
 ```bash

@@ -13,6 +13,12 @@ body { margin:0; font-family:Inter, system-ui, -apple-system, Segoe UI, Roboto, 
 .header .container { display:flex; justify-content:space-between; align-items:center; }
 .app-title { margin:0; font-weight:700; letter-spacing:.2px; }
 
+/* Print header */
+.print-header { display:none; text-align:center; margin-bottom:1rem; }
+.print-header h2 { margin:0; }
+.print-header p { margin:0; font-size:0.9rem; color:#444; }
+@media print { .print-header { display:block; } }
+
 /* Layout */
 .container { max-width:1100px; margin:0 auto; padding:0 1rem; }
 .card { background:#fff; border:1px solid var(--line); border-radius:14px; padding:1rem; box-shadow:0 2px 6px rgba(0,0,0,.08); }
@@ -50,7 +56,7 @@ th { font-weight:600; }
 
 /* Utilities */
 .hidden { display:none !important; }
-@media print { .no-print { display:none !important; } }
+@media print { .no-print, .actions-col { display:none !important; } }
 `;
 
 const KEY='bb_tracker_canvas_v8'
@@ -83,6 +89,8 @@ export default function App(){
   const triggerImport=()=>fileRef.current?.click()
   const onFilePicked=(e)=>{const f=e.target.files?.[0];if(f)importBackupFromFile(f);e.target.value=''}
 
+  const today=new Date().toLocaleDateString()
+
   return (
     <div>
       <style>{styles}</style>
@@ -95,6 +103,13 @@ export default function App(){
           </div>
         </div>
       </div>
+
+      <div className="print-header">
+        <h2>Dillon Christian School</h2>
+        <p>Boston Butt Fundraiser Report — {settings.schoolYear}</p>
+        <p>Date: {today}</p>
+      </div>
+
       <div className="container">
         {showSettings && (
           <div className="card no-print">
@@ -134,7 +149,7 @@ export default function App(){
           <h3>Students</h3>
           <table>
             <thead>
-              <tr><th>Name</th><th>Assigned (Mon/Tue)</th><th>Sold (Mon/Tue)</th><th>On Hand (Mon/Tue)</th><th>Collected $</th><th>Actions</th></tr>
+              <tr><th>Name</th><th>Assigned (Mon/Tue)</th><th>Sold (Mon/Tue)</th><th>On Hand (Mon/Tue)</th><th>Collected $</th><th className="actions-col no-print">Actions</th></tr>
             </thead>
             <tbody>{rows.map(r=><StudentRow key={r.id} row={r} onAssign={assign} onSell={sell} onDonate={donate} onRemove={removeStudent}/>)}</tbody>
             <tfoot>
@@ -163,7 +178,7 @@ function StudentRow({row,onAssign,onSell,onDonate,onRemove}){
   return (
     <tr>
       <td>{row.name}</td><td>{row.assignedMon}/{row.assignedTue}</td><td>{row.soldMon}/{row.soldTue}</td><td>{row.onHandMon}/{row.onHandTue}</td><td>${row.collected}</td>
-      <td>
+      <td className="actions-col no-print">
         <div className="row-actions">
           <div className="pills">
             <button className={day==='Mon'?'active':''} onClick={()=>setDay('Mon')}>Mon</button>
